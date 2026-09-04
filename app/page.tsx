@@ -1,6 +1,7 @@
 'use client';
 
 import { FormEvent, useEffect, useState } from 'react';
+import { createClient } from '../lib/supabase/client';
 
 type View = 'overview' | 'people' | 'calendar' | 'committees' | 'finance' | 'reports' | 'admin';
 
@@ -38,12 +39,24 @@ export default function Home() {
   const [stage, setStage] = useState<'splash' | 'login' | 'menu' | 'app'>('splash');
   const [view, setView] = useState<View>('overview');
   const [passwordVisible, setPasswordVisible] = useState(false);
+  const [authError, setAuthError] = useState('');
   useEffect(() => { const timer = window.setTimeout(() => setStage('login'), 1450); return () => window.clearTimeout(timer); }, []);
-  const signIn = (event: FormEvent<HTMLFormElement>) => { event.preventDefault(); setStage('menu'); };
+  const signIn = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    setAuthError('');
+    const form = new FormData(event.currentTarget);
+    const email = String(form.get('email') || '');
+    const password = String(form.get('password') || '');
+    const supabase = createClient();
+    if (!supabase) { setStage('menu'); return; }
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error) { setAuthError(error.message); return; }
+    setStage('menu');
+  };
   const enter = (next: View) => { setView(next); setStage('app'); };
 
   if (stage === 'splash') return <main className="splash"><div className="orbit" /><div className="splash-mark"><Mark /></div><h1>Wesley<span>Link</span></h1><div className="rule" /><p>Connected for ministry. Equipped for mission.</p></main>;
-  if (stage === 'login') return <main className="login"><div className="login-card"><div className="wordmark"><Mark /><strong>Wesley<span>Link</span></strong></div><em>Circuit workspace</em><h1>Welcome back.</h1><p>Sign in to continue to your connected church workspace.</p><form onSubmit={signIn}><label>Email address<input type="email" defaultValue="thandi@wesleylink.org" required /></label><label>Password<div className="password"><input type={passwordVisible ? 'text' : 'password'} defaultValue="demo-password" required /><button type="button" onClick={() => setPasswordVisible(!passwordVisible)}>{passwordVisible ? 'Hide' : 'Show'}</button></div></label><div className="login-row"><label><input type="checkbox" defaultChecked /> Remember me</label><a href="#">Forgot password?</a></div><button className="submit">Sign in <span>→</span></button></form><small>Demo workspace · <b>Goromonzi Circuit</b></small></div></main>;
+  if (stage === 'login') return <main className="login"><div className="login-card"><div className="wordmark"><Mark /><strong>Wesley<span>Link</span></strong></div><em>Circuit workspace</em><h1>Welcome back.</h1><p>Sign in to continue to your connected church workspace.</p><form onSubmit={signIn}><label>Email address<input name="email" type="email" defaultValue="thandi@wesleylink.org" required /></label><label>Password<div className="password"><input name="password" type={passwordVisible ? 'text' : 'password'} defaultValue="demo-password" required /><button type="button" onClick={() => setPasswordVisible(!passwordVisible)}>{passwordVisible ? 'Hide' : 'Show'}</button></div></label><div className="login-row"><label><input type="checkbox" defaultChecked /> Remember me</label><a href="#">Forgot password?</a></div>{authError && <div className="auth-error" role="alert">{authError}</div>}<button className="submit">Sign in <span>→</span></button></form><small>Demo workspace · <b>Goromonzi Circuit</b></small></div></main>;
   if (stage === 'menu') return <main className="menu"><header><button className="wordmark menu-logo" onClick={() => setStage('menu')}><Mark /><strong>Wesley<span>Link</span></strong></button><div className="identity">Goromonzi Circuit <b>TM</b> Thandi Moyo⌄</div></header><section className="menu-heading"><div><em>Circuit workspace</em><h1>What would you like to open?</h1><p>Choose a workspace to continue.</p></div><div className="period">2025 / 26 <small>Reporting year</small></div></section><section className="tiles">{[['overview','Your circuit','Overview','See the pulse of your churches, people and ministry.','tile-green'],['people','Community','People & membership','Membership, sections, movements and pastoral records.','tile-blue'],['calendar','Planning','Calendar','Approved events, council plans and ministry dates.','tile-red'],['finance','Stewardship','Finance','Income, expenditure, budgets and giving analytics.','tile-gold'],['reports','Reporting','Statistics & reports','ZEAC readiness, charts and premium A4 reports.','tile-olive'],['admin','Administration','Manage the circuit','Churches, sections, committees, roles and appointments.','tile-slate']].map(t => <button key={t[0]} className={`tile ${t[4]}`} onClick={() => enter(t[0] as View)}><em>{t[1]}</em><strong>{t[2]}</strong><small>{t[3]}</small><i>↗</i></button>)}</section><footer>↑↓ Move &nbsp;&nbsp;&nbsp; <b>ENTER</b> Select workspace <span>WesleyLink · Prototype</span></footer></main>;
 
   const data = view === 'overview' ? null : pageData[view];
