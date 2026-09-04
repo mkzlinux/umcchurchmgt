@@ -1,0 +1,19 @@
+import { notFound, redirect } from 'next/navigation';
+import Link from 'next/link';
+import { createClient } from '../../../../lib/supabase/server';
+import MemberActions from './member-actions';
+import '../../../globals.css';
+
+type Props = { params: Promise<{ id: string }> };
+export default async function MembersPage({ params }: Props) {
+  const { id } = await params; const supabase = await createClient();
+  if (!supabase) return <DemoMembers />;
+  const { data: { user } } = await supabase.auth.getUser(); if (!user) redirect('/');
+  const { data: membership } = await supabase.from('circuit_memberships').select('role').eq('circuit_id', id).eq('user_id', user.id).maybeSingle(); if (!membership) redirect('/');
+  const { data: circuit } = await supabase.from('circuits').select('id,name,code').eq('id', id).maybeSingle(); if (!circuit) notFound();
+  const { data: churches } = await supabase.from('churches').select('id,name,sections(id,name)').eq('circuit_id', id).order('name');
+  const { data: members } = await supabase.from('members').select('id,first_name,last_name,gender,category,status,churches(name),sections(name)').eq('circuit_id', id).order('last_name').limit(100);
+  return <MembersView circuit={circuit} churches={churches||[]} members={members||[]} />;
+}
+function DemoMembers(){return <MembersView circuit={{id:'demo',name:'Goromonzi Circuit',code:'GOR-001'}} churches={[{id:'demo',name:'UMC Goromonzi Church',sections:[{id:'s1',name:'Goromonzi Central'}]}]} members={[{id:'m1',first_name:'Tariro',last_name:'Moyo',gender:'female',category:'full_member',status:'active',churches:{name:'UMC Goromonzi Church'},sections:{name:'Goromonzi Central'}}]}/>}
+function MembersView({ circuit, churches, members }: { circuit:{id:string;name:string;code?:string|null}; churches:Array<{id:string;name:string;sections?:{id:string;name:string}[]}>; members:Array<any> }) { const category=(value:string)=>value.replaceAll('_',' ').replace(/\b\w/g,c=>c.toUpperCase()); return <main className="root-workspace"><header className="navbar"><Link className="wordmark" href={`/circuit/${circuit.id}`}><span className="mark"><i /></span><strong>Wesley<span>Link</span></strong></Link><div className="scope-pill">{circuit.name} · Members</div><div className="tools"><Link className="back-root" href={`/circuit/${circuit.id}`}>Circuit overview</Link><b>TM</b></div></header><section className="root-content"><div className="root-heading"><div><em>Membership register · {circuit.code||'No code'}</em><h1>People in the circuit.</h1><p>Keep membership, church and section records accurate from one place.</p></div><MemberActions circuitId={circuit.id} churches={churches}/></div><div className="root-grid"><article className="root-card"><small>Members shown</small><b className="root-number">{members.length}</b><span className="root-muted">Live register view</span></article><article className="root-card"><small>Active members</small><b className="root-number">{members.filter(member=>member.status==='active').length}</b><span className="root-muted">Current membership</span></article><article className="root-card"><small>Churches</small><b className="root-number">{churches.length}</b><span className="root-muted">Available for assignment</span></article></div><div className="root-table"><div className="panel-head"><h2>Membership register</h2><button className="panel-link">Export list</button></div>{members.length?members.map(member=><div className="root-table-row" key={member.id}><span className="row-mark blue"/><div><strong>{member.first_name} {member.last_name}</strong><small>{category(member.category)} · {member.churches?.name||'No church'} · {member.sections?.name||'No section'}</small></div><b>{member.status}</b><Link href={`/circuit/${circuit.id}`}>Open →</Link></div>):<div className="empty-state"><strong>No members registered yet.</strong><p>Add the first member to begin the circuit register.</p></div>}</div></section></main>; }
