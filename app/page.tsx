@@ -51,7 +51,9 @@ export default function Home() {
     if (!supabase) { setStage('menu'); return; }
     const { error } = await supabase.auth.signInWithPassword({ email, password });
     if (error) { setAuthError(error.message); return; }
-    setStage('menu');
+    const { data: root } = await supabase.from('platform_memberships').select('user_id').eq('user_id', (await supabase.auth.getUser()).data.user?.id || '').maybeSingle();
+    const { data: circuitMembership } = await supabase.from('circuit_memberships').select('circuit_id').eq('user_id', (await supabase.auth.getUser()).data.user?.id || '').maybeSingle();
+    window.location.href = root ? '/root' : circuitMembership ? '/' : '/setup';
   };
   const enter = (next: View) => { setView(next); setStage('app'); };
 
