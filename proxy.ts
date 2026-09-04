@@ -17,4 +17,4 @@ export async function proxy(request: NextRequest) {
   return response;
 }
 
-export const config = { matcher: ['/root/:path*', '/setup/:path*'] };
+export const config = { matcher: ['/root/:path*', '/setup/:path*', '/circuit/:path*'] };
