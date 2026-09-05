@@ -1,0 +1,5 @@
+'use client';
+import { useState } from 'react';
+import { useRouter } from 'next/navigation';
+import { createClient } from '../../../../lib/supabase/client';
+export default function ReviewAction({id,status}:{id:string;status:string}){const router=useRouter();const[busy,setBusy]=useState(false);async function review(decision:'approved'|'changes_requested'){const comments=window.prompt(decision==='approved'?'Council comment (optional):':'What changes are required?','')??'';setBusy(true);const supabase=createClient();if(!supabase){window.alert('Connect Supabase to review this plan.');setBusy(false);return;}const{error}=await supabase.rpc('approve_committee_submission',{submission_id:id,decision,comments});if(error)window.alert(error.message);else router.refresh();setBusy(false)}if(status==='approved'||status==='rejected')return <b className="review-complete">{status}</b>;return <span className="review-actions"><button disabled={busy} onClick={()=>review('changes_requested')}>Changes</button><button disabled={busy} className="approve" onClick={()=>review('approved')}>{busy?'…':'Approve'}</button></span>}
