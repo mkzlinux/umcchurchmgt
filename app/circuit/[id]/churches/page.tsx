@@ -1,0 +1,18 @@
+import { notFound, redirect } from 'next/navigation';
+import Link from 'next/link';
+import { createClient } from '../../../../lib/supabase/server';
+import ChurchActions from './church-actions';
+import '../../../globals.css';
+
+type Props = { params: Promise<{ id: string }> };
+export default async function ChurchesPage({ params }: Props) {
+  const { id } = await params; const supabase = await createClient();
+  if (!supabase) return <DemoChurches />;
+  const { data: { user } } = await supabase.auth.getUser(); if (!user) redirect('/');
+  const { data: membership } = await supabase.from('circuit_memberships').select('role').eq('circuit_id', id).eq('user_id', user.id).maybeSingle(); if (!membership) redirect('/');
+  const { data: circuit } = await supabase.from('circuits').select('id,name,code').eq('id', id).maybeSingle(); if (!circuit) notFound();
+  const { data: churches } = await supabase.from('churches').select('id,name,code,active,preaching_points(id,name),sections(id,name)').eq('circuit_id', id).order('name');
+  return <ChurchesView circuit={circuit} churches={churches || []} />;
+}
+function DemoChurches() { return <ChurchesView circuit={{ id:'demo', name:'Goromonzi Circuit', code:'GOR-001' }} churches={[{ id:'demo-1', name:'UMC Goromonzi Church', code:'GOR-CH-01', active:true, preaching_points:[{id:'p1',name:'Acturus'}], sections:[{id:'s1',name:'Goromonzi Central'},{id:'s2',name:'Acturus Section'}] }]} />; }
+function ChurchesView({ circuit, churches }: { circuit:{id:string;name:string;code?:string|null}; churches:Array<{id:string;name:string;code?:string|null;active:boolean;preaching_points?:Array<{id:string;name:string}>;sections?:Array<{id:string;name:string}>}> }) { return <main className="root-workspace"><header className="navbar"><Link className="wordmark" href={`/circuit/${circuit.id}`}><span className="mark"><i /></span><strong>Wesley<span>Link</span></strong></Link><div className="scope-pill">{circuit.name} · Churches</div><div className="tools"><Link className="back-root" href={`/circuit/${circuit.id}`}>Circuit overview</Link><b>TM</b></div></header><section className="root-content"><div className="root-heading"><div><em>Church structure · {circuit.code || 'No code'}</em><h1>Churches in the circuit.</h1><p>Manage local churches, preaching points and sections from one place.</p></div><ChurchActions circuitId={circuit.id} /></div><div className="root-grid"><article className="root-card"><small>Local churches</small><b className="root-number">{churches.length}</b><span className="root-muted">Registered in this circuit</span></article><article className="root-card"><small>Preaching points</small><b className="root-number">{churches.reduce((n,c)=>n+(c.preaching_points?.length||0),0)}</b><span className="root-muted">Connected locations</span></article><article className="root-card"><small>Sections</small><b className="root-number">{churches.reduce((n,c)=>n+(c.sections?.length||0),0)}</b><span className="root-muted">Geographic ministry areas</span></article></div><div className="root-table"><div className="panel-head"><h2>Registered local churches</h2><button className="panel-link">Export list</button></div>{churches.length ? churches.map(church=><div className="root-table-row" key={church.id}><span className="row-mark green"/><div><strong>{church.name}</strong><small>{church.code || 'No code'} · {church.preaching_points?.length||0} preaching points · {church.sections?.length||0} sections</small></div><b>{church.active?'Active':'Archived'}</b><Link href={`/circuit/${circuit.id}`}>Open →</Link></div>) : <div className="empty-state"><strong>No churches registered yet.</strong><p>Add the first local church to begin configuring this circuit.</p></div>}</div></section></main>; }
